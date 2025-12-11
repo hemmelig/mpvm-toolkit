@@ -1,0 +1,22 @@
+# --- Line plot config ---
+lines.linewidth : 0.8
+lines.markersize : 10
+
+# --- x-axis config ---
+xtick.labelsize : 8
+xtick.major.size : 3
+xtick.minor.size : 2.25
+xtick.major.width : 1.2
+xtick.minor.width : 1
+
+# --- y-axis config ---
+ytick.labelsize : 8
+ytick.major.size : 3
+ytick.minor.size : 2.25
+ytick.major.width : 1.2
+ytick.minor.width : 1
+
+# --- General axes config ---
+axes.titlesize : 8
+axes.labelsize : 8
+axes.linewidth : 1.2

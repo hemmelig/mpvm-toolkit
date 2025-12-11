@@ -1,0 +1,25 @@
+products = "./products"
+products_format = "{network}/{station}"
+
+archive = "./archive/miniseed"
+archive_format = "{year}/{network}/{station}/{channels}/{network}.{station}.{location}.{channels}.{year}.{jday:03d}"
+
+stylesheet = "./basic_style.mplstyle"
+
+norm_factor = 10.0
+interval = 15
+
+[site]
+network = ""
+station = ""
+location = ""
+channels = "*HZ"
+
+[preprocess]
+detrend = ["linear", "demean"]
+
+[preprocess.filters.filter01]
+type = "highpass"
+freq = 2.0
+corners = 2
+zerophase = true
