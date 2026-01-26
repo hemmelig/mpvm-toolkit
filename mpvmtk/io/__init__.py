@@ -9,7 +9,7 @@ Input/output module containing utilities for reading multi-parameter datastreams
 
 """
 
-from .miniseed import read_archive as read_miniseed_archive
+from .miniseed import make_waveform_client
 
 
-__all__ = [read_miniseed_archive]
+__all__ = [make_waveform_client]

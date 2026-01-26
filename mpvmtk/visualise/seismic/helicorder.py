@@ -14,14 +14,14 @@ filtering, then renders the drum plot.
 
 import pathlib
 import sys
-from datetime import datetime as dt, timedelta as td, UTC
+from datetime import date as _date, datetime as dt, timedelta as td, UTC
 
 import matplotlib.pyplot as plt
 import numpy as np
 import obspy
 from matplotlib.ticker import MultipleLocator
 
-from mpvmtk.io import read_miniseed_archive
+from mpvmtk.io import make_waveform_client
 
 
 def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
@@ -63,17 +63,9 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
         f"     Date: {starttime.date()}"
     )
 
-    print("   ...loading waveform data from archive...", end="")
-    st = read_miniseed_archive(
-        network,
-        station,
-        location,
-        channels,
-        starttime=starttime,
-        endtime=endtime,
-        archive=pathlib.Path(config["archive"]),
-        archive_fmt=config["archive_format"],
-    )
+    client = make_waveform_client(config["data"])
+    print("   ...loading waveform data...", end="")
+    st = client.get_waveforms(network, station, location, channels, starttime, endtime)
 
     if not st:
         print("no data available. Exiting.")
@@ -92,19 +84,20 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
     filtered_st = tmp_st
 
     fig, ax = plt.subplots(1, figsize=(9, 11), constrained_layout=True)
-    ax = _plot_helicorder(ax, filtered_st, config)
+    ax = _plot_helicorder(ax, filtered_st, starttime.date(), config)
 
     fig.suptitle("")
     fname = (
-        f"{filtered_st[0].id}-{starttime.strftime('%Y-%m-%d')}"
-        "_seismic-helicorder.png"
+        f"{filtered_st[0].id}-{starttime.strftime('%Y-%m-%d')}_seismic-helicorder.png"
     )
     fig.savefig(archive_path / fname, dpi=400)
 
     print(f"complete.")
 
 
-def _plot_helicorder(ax: plt.Axes, st: obspy.Stream, config: dict) -> plt.Axes:
+def _plot_helicorder(
+    ax: plt.Axes, st: obspy.Stream, date: _date, config: dict
+) -> plt.Axes:
     """
     Constructs a figure depicting the helicorder for a given station on a given day.
 
@@ -114,6 +107,8 @@ def _plot_helicorder(ax: plt.Axes, st: obspy.Stream, config: dict) -> plt.Axes:
         The Matplotlib axes on which to plot the helicorder.
     st:
         ObsPy Stream object containing the data that has been loaded from the archive.
+    date:
+        The date being visualised.
     config:
         The config file for the visualisation.
 
@@ -134,7 +129,7 @@ def _plot_helicorder(ax: plt.Axes, st: obspy.Stream, config: dict) -> plt.Axes:
 
     interval = config["interval"]  # In minutes
     lines = int((24 * 60) / interval)
-    starttime = obspy.UTCDateTime(st[0].stats.starttime.date)
+    starttime = obspy.UTCDateTime(date)
 
     clrs = iter(plt.cm.magma(np.linspace(0, lines, lines + 1) % 4 / 4))
     for y_offset, clr in zip(range(lines, -1, -1), clrs):
@@ -163,6 +158,6 @@ def _plot_helicorder(ax: plt.Axes, st: obspy.Stream, config: dict) -> plt.Axes:
     ylabels = [f"{hour:02}:00" for hour in range(23, -1, -1)]
     ax.set_yticklabels(ylabels)
 
-    ax.set_title(f"{st[0].id} - {st[0].stats.starttime.date}")
+    ax.set_title(f"{st[0].id} - {date}")
 
     return ax

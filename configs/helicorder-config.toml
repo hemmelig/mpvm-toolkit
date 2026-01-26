@@ -1,13 +1,21 @@
 products = "./products"
 products_format = "{network}/{station}"
 
-archive = "./archive/miniseed"
-archive_format = "{year}/{network}/{station}/{channels}/{network}.{station}.{location}.{channels}.{year}.{jday:03d}"
-
 stylesheet = "./basic_style.mplstyle"
 
 norm_factor = 10.0
 interval = 15
+
+[data]
+client = "local"  # or "fdsn"
+
+[data.local]
+archive = "./archive/miniseed"
+archive_format = "{year}/{network}/{station}/{channels}/{network}.{station}.{location}.{channels}.{year}.{jday:03d}"
+
+[data.fdsn]
+base_url = "IRIS"         # or "https://service.iris.edu"
+timeout = 60
 
 [site]
 network = ""
