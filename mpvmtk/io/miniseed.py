@@ -5,7 +5,7 @@ Input/output module for working with miniSEED data stored in either:
     - a remote server operating an FDSN webservice for data access
 
 :copyright:
-    2025, Conor A. Bacon
+    2026, Conor A. Bacon
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -17,10 +17,17 @@ from __future__ import annotations
 import pathlib
 from dataclasses import dataclass, field
 from datetime import datetime as dt, timedelta as td
-from typing import Protocol
+from typing import Any, Mapping, Protocol
 
 import obspy
 from obspy.clients.fdsn import Client as FDSNClient
+try:
+    from seismonpy.norsardb import Client as SeisMonClient
+
+    SEISMON_AVAILABLE = True
+except ImportError:
+    print("SeisMonPy not available.")
+    SEISMON_AVAILABLE = False
 
 
 class WaveformClient(Protocol):
@@ -39,7 +46,7 @@ class WaveformClient(Protocol):
 
 @dataclass(slots=True)
 class LocalArchiveClient:
-    archive: pathlib.Path
+    archive_root: pathlib.Path
     archive_format: str
 
     def get_waveforms(
@@ -85,7 +92,7 @@ class LocalArchiveClient:
         st = obspy.Stream()
         read_from = starttime - td(seconds=pre_pad)
         while read_from.date() <= (endtime + td(seconds=post_pad)).date():
-            glob_path = self.archive_fmt.format(
+            glob_path = self.archive_format.format(
                 network=network,
                 station=station,
                 location=location,
@@ -94,7 +101,7 @@ class LocalArchiveClient:
                 year=read_from.year,
                 jday=read_from.timetuple().tm_yday,
             )
-            data_files = self.archive.glob(glob_path)
+            data_files = self.archive_root.glob(glob_path)
             for data_file in data_files:
                 st += obspy.read(data_file)
 
@@ -102,8 +109,8 @@ class LocalArchiveClient:
 
         st.merge(method=-1)
         st.trim(
-            starttime=obspy.UTCDateTime(starttime.date()) - pre_pad,
-            endtime=obspy.UTCDateTime(endtime.date()) + post_pad - st[0].stats.delta,
+            starttime=obspy.UTCDateTime(starttime) - pre_pad,
+            endtime=obspy.UTCDateTime(endtime) + post_pad - st[0].stats.delta,
         )
 
         return st
@@ -166,7 +173,90 @@ class FDSNWaveformClientWrapper:
         )
 
 
-def make_waveform_client(config: dict) -> WaveformClient:
+@dataclass(slots=True)
+class SeismonWaveformClientWrapper:
+
+    db_path: str | None = None
+    db_archive_path: str | None = None
+    inventories_path: str | None = None
+    cache_waveforms: bool | None = None
+    load_response: bool | None = None
+    inventory_index_path: str | None = None
+    noresponse_inventory_path: str | None = None
+    response_inventory_path: str | None = None
+    static_xml_inventory_path: str | None = None
+    index_path: str | None = None
+
+    _client: SeisMonClient = field(init=False)
+
+    def __post_init__(self) -> None:
+        if not SEISMON_AVAILABLE:
+            raise ImportError("seismonpy is not available in this environment")
+
+        # Build kwargs from dataclass fields that are not None
+        kwargs: dict[str, Any] = {
+            "db_path": self.db_path,
+            "db_archive_path": self.db_archive_path,
+            "inventories_path": self.inventories_path,
+            "cache_waveforms": self.cache_waveforms,
+            "load_response": self.load_response,
+            "inventory_index_path": self.inventory_index_path,
+            "noresponse_inventory_path": self.noresponse_inventory_path,
+            "response_inventory_path": self.response_inventory_path,
+            "static_xml_inventory_path": self.static_xml_inventory_path,
+            "index_path": self.index_path,
+        }
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+        self._client = SeisMonClient(**kwargs)
+
+    def get_waveforms(
+        self,
+        network: str,
+        station: str,
+        location: str,
+        channels: str,
+        starttime: dt,
+        endtime: dt,
+        pre_pad: float = 0.0,
+        post_pad: float = 0.0,
+    ) -> obspy.Stream:
+        """
+        Passthrough for the SeisMonPy Client `get_waveforms` method.
+
+        Parameters
+        ----------
+        network:
+            The network code of data to be loaded from the SeisMon Client.
+        station:
+            The station code of data to be loaded from the SeisMon Client.
+        location:
+            The location code of data to be loaded from the SeisMon Client.
+        channels:
+            The FDSN channel codes of data to be loaded from the SeisMon Client.
+        starttime:
+            First timestamp of data to be loaded from the SeisMon Client.
+        endtime:
+            Final timestamp of data to be loaded from the SeisMon Client.
+        pre_pad:
+            Optional time-padding to account for potential tapering.
+        post_pad:
+            Optional time-padding to account for potential tapering.
+
+        Returns
+        -------
+        st:
+            Stream containing the data that has been loaded from the SeisMon Client.
+
+        """
+
+        starttime = obspy.UTCDateTime(starttime) - pre_pad
+        endtime = obspy.UTCDateTime(endtime) + post_pad
+
+        return self._client.get_waveforms(station, channels, starttime, endtime)
+
+
+def make_waveform_client(config: Mapping[str, Any]) -> WaveformClient:
     """
     Factory function for creating a WaveformClient from a config file.
 
@@ -178,24 +268,27 @@ def make_waveform_client(config: dict) -> WaveformClient:
     Returns
     -------
     client:
-        A local or FDSN waveform client.
+        A local, FDSN, or SeisMon waveform client.
 
     """
 
-    mode = config["client"]
-
-    if mode == "local":
-        local = config["local"]
-        return LocalArchiveClient(
-            archive=pathlib.Path(local["archive"]),
-            archive_format=local["archive_format"],
-        )
-
-    if mode == "fdsn":
-        remote = config["fdsn"]
-        return FDSNWaveformClientWrapper(
-            base_url=remote["base_url"],
-            timeout=int(remote.get("timeout", 60)),
-        )
-
-    raise ValueError(f"Unknown data.client={mode!r}")
+    match mode := config["client"]:
+        case "local":
+            local = config["local"]
+            return LocalArchiveClient(
+                archive=pathlib.Path(local["archive"]),
+                archive_format=local["archive_format"],
+            )
+        case "fdsn":
+            remote = config["fdsn"]
+            return FDSNWaveformClientWrapper(
+                base_url=remote["base_url"],
+                timeout=int(remote.get("timeout", 60)),
+            )
+        case "seismon":
+            if not SEISMON_AVAILABLE:
+                raise RuntimeError("data.client='seismon' but seismonpy is not installed")
+            remote = config.get("seismon", {})
+            return SeismonWaveformClientWrapper(**remote)
+        case _:
+            raise ValueError(f"Unknown data.client={mode!r}")

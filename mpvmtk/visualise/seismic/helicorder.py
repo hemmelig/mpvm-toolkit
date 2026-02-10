@@ -5,7 +5,7 @@ The helicorder has no compute stage: it reads raw waveform data, applies optiona
 filtering, then renders the drum plot.
 
 :copyright:
-    2025, Conor A. Bacon
+    2026, Conor A. Bacon
 :license:
     GNU General Public License, Version 3
     (https://www.gnu.org/licenses/gpl-3.0.html)
@@ -43,6 +43,7 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
     station = config["site"]["station"]
     location = config["site"]["location"]
     channels = config["site"]["channels"]
+    seed_id = ".".join([network, station, location, channels])
 
     if date is None:
         starttime = dt.combine(dt.now(UTC).date(), dt.min.time())
@@ -87,9 +88,7 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
     ax = _plot_helicorder(ax, filtered_st, starttime.date(), config)
 
     fig.suptitle("")
-    fname = (
-        f"{filtered_st[0].id}-{starttime.strftime('%Y-%m-%d')}_seismic-helicorder.png"
-    )
+    fname = f"{seed_id}-{starttime.strftime('%Y-%m-%d')}_seismic-helicorder.png"
     fig.savefig(archive_path / fname, dpi=400)
 
     print(f"complete.")
