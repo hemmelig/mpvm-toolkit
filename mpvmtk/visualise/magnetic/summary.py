@@ -56,7 +56,7 @@ def visualise_magnetic_field_summary(
     station = config["site"]["station"]
     location = config["site"].get("location", "")
     channels = config["site"].get("channels", "*F*")
-    partial_seed_id = ".".join(network, station, location)
+    partial_seed_id = ".".join([network, station, location])
     correction_name = config["magnetic"]["correction_factor"]
 
     if starttime is None or endtime is None:
@@ -181,21 +181,13 @@ def _plot_magnetic_field_summary(
     st.merge(method=0, fill_value=0)
 
     ax = axes["INTENSITY"]
-    intensity = np.array(
-        [
-            correction_factor * (x**2 + y**2 + z**2) ** 0.5
-            if x != 0 and y != 0 and z != 0
-            else 0
-            for x, y, z in zip(
-                st.select(component="E")[0].data,
-                st.select(component="N")[0].data,
-                st.select(component="Z")[0].data,
-            )
-        ]
-    )
-    intensity[intensity == 0] = np.nan
-    intensity[intensity > 100] = np.nan
-    intensity[intensity < 20] = np.nan
+    e = st.select(component="E")[0].data.astype(float)
+    n = st.select(component="N")[0].data.astype(float)
+    z = st.select(component="Z")[0].data.astype(float)
+
+    intensity = correction_factor * np.sqrt(e**2 + n**2 + z**2)
+    mask = (e == 0) | (n == 0) | (z == 0) | (intensity > 100) | (intensity < 20)
+    intensity[mask] = np.nan
 
     ax.plot(st[0].times("matplotlib"), intensity, c="#045275")
     ax.set_ylabel(r"Total field intensity / $\mu$T")

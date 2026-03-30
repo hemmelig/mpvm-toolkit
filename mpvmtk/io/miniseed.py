@@ -46,8 +46,8 @@ class WaveformClient(Protocol):
 
 @dataclass(slots=True)
 class LocalArchiveClient:
-    archive_root: pathlib.Path
-    archive_format: str
+    path: pathlib.Path
+    format: str
 
     def get_waveforms(
         self,
@@ -92,7 +92,7 @@ class LocalArchiveClient:
         st = obspy.Stream()
         read_from = starttime - td(seconds=pre_pad)
         while read_from.date() <= (endtime + td(seconds=post_pad)).date():
-            glob_path = self.archive_format.format(
+            glob_path = self.format.format(
                 network=network,
                 station=station,
                 location=location,
@@ -101,11 +101,13 @@ class LocalArchiveClient:
                 year=read_from.year,
                 jday=read_from.timetuple().tm_yday,
             )
-            data_files = self.archive_root.glob(glob_path)
-            for data_file in data_files:
+            for data_file in self.path.glob(glob_path):
                 st += obspy.read(data_file)
 
             read_from += td(days=1)
+
+        if not st:
+            raise ValueError
 
         st.merge(method=-1)
         st.trim(
@@ -276,8 +278,8 @@ def make_waveform_client(config: Mapping[str, Any]) -> WaveformClient:
         case "local":
             local = config["local"]
             return LocalArchiveClient(
-                archive=pathlib.Path(local["archive"]),
-                archive_format=local["archive_format"],
+                path=pathlib.Path(local["path"]),
+                format=local["format"],
             )
         case "fdsn":
             remote = config["fdsn"]
