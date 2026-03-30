@@ -91,7 +91,7 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
     fname = f"{seed_id}-{starttime.strftime('%Y-%m-%d')}_seismic-helicorder.png"
     fig.savefig(archive_path / fname, dpi=400)
 
-    print(f"complete.")
+    print("complete.")
 
 
 def _plot_helicorder(

@@ -12,4 +12,4 @@ Collection of modules for visualising seismic data and related products.
 from .helicorder import visualise_seismic_helicorder
 
 
-__all__ = [visualise_seismic_helicorder]
+__all__ = ["visualise_seismic_helicorder"]

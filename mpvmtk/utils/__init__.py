@@ -12,4 +12,4 @@ Module containing various utilities for mpvm.
 from .config import read_config
 
 
-__all__ = [read_config]
+__all__ = ["read_config"]

@@ -8,3 +8,12 @@ Collection of modules for visualising products of multi-parameter data.
     (https://www.gnu.org/licenses/gpl-3.0.html)
 
 """
+
+from .magnetic import visualise_magnetic_field_summary
+from .seismic import visualise_seismic_helicorder
+
+
+__all__ = [
+    "visualise_magnetic_field_summary",
+    "visualise_seismic_helicorder",
+]

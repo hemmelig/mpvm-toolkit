@@ -14,6 +14,7 @@ import pathlib
 import typer
 
 from mpvmtk.utils import read_config
+from mpvmtk.visualise.magnetic import visualise_magnetic_field_summary
 from mpvmtk.visualise.seismic import visualise_seismic_helicorder
 
 
@@ -44,3 +45,43 @@ def helicorder_cmd(
     config = read_config(config_path)
 
     visualise_seismic_helicorder(config=config, date=date)
+
+
+@app.command("magnetic-summary")
+def magnetic_summary_cmd(
+    config_path: pathlib.Path = typer.Option(
+        ...,
+        "--config",
+        "-c",
+        help="TOML config file.",
+    ),
+    starttime: str = typer.Option(
+        ...,
+        "--starttime",
+        help="Start date (YYYY-MM-DD).",
+    ),
+    endtime: str = typer.Option(
+        ...,
+        "--endtime",
+        help="End date (YYYY-MM-DD).",
+    ),
+):
+    """
+    Top-level dispatch command for building magnetic field summary visualisations.
+
+    Parameters
+    ----------
+    config_path:
+        Path to the TOML configuration file.
+    date:
+        The date for which to produce the helicorder visualisation.
+
+    """
+    
+    config = read_config(config_path)
+
+    visualise_magnetic_field_summary(
+        config=config,
+        starttime=starttime,
+        endtime=endtime,
+    )

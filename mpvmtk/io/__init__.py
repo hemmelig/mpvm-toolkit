@@ -12,4 +12,4 @@ Input/output module containing utilities for reading multi-parameter datastreams
 from .miniseed import make_waveform_client
 
 
-__all__ = [make_waveform_client]
+__all__ = ["make_waveform_client"]
