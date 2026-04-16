@@ -10,6 +10,7 @@ Module containing various utilities for mpvm.
 """
 
 from .config import read_config
+from .datetime_generator import iter_time_chunks
 
 
-__all__ = ["read_config"]
+__all__ = ["iter_time_chunks", "read_config"]
