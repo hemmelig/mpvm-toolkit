@@ -120,7 +120,7 @@ class LocalArchiveClient:
         return st
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class FDSNWaveformClientWrapper:
     base_url: str
     timeout: int = 60
@@ -177,7 +177,7 @@ class FDSNWaveformClientWrapper:
         )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class SeismonWaveformClientWrapper:
 
     db_path: str | None = None

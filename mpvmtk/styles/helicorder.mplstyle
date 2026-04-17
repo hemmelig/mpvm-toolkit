@@ -1,5 +1,5 @@
 # --- Figure geometry ---
-figure.figsize: 6.8898, 7.8740   # 17.5 cm x 20 cm
+figure.figsize: 6.8898, 8.8583   # 17.5 cm x 20 cm
 savefig.dpi: 400
 figure.constrained_layout.use: True
 

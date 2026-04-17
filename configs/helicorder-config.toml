@@ -1,19 +1,14 @@
 products = "./products"
 products_format = "{network}/{station}"
 
-stylesheet = "./basic_style.mplstyle"
-
-norm_factor = 10.0
-interval = 15
-
-[waveform]
+[waveforms]
 client = "local"  # or "fdsn"
 
-[waveform.local]
+[waveforms.local]
 archive = "./archive/miniseed"
 archive_format = "{year}/{network}/{station}/{channels}/{network}.{station}.{location}.{channels}.{year}.{jday:03d}"
 
-[waveform.fdsn]
+[waveforms.fdsn]
 base_url = "IRIS"         # or "https://service.iris.edu"
 timeout = 60
 
@@ -37,3 +32,17 @@ type = "highpass"
 freq = 2.0
 corners = 2
 zerophase = true
+
+[preprocess.remove_response]
+inventory = "/path/to/response/file.xml"
+output = "VEL"
+pre_filt = [0.03, 0.05, 20.0, 25.0]
+water_level = 60
+zero_mean = true
+taper = true
+taper_fraction = 0.05
+
+[amplitude]
+velocity_scale_mps = 0.1e-6   # 0.1 µm/s
+clip_lines = 3.0
+mode = "none"

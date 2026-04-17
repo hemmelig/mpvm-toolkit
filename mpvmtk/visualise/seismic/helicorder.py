@@ -71,7 +71,7 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
         f"     Date: {starttime.date()}"
     )
 
-    client = make_waveform_client(config["client"])
+    client = make_waveform_client(config["waveforms"])
     print("   ...loading waveform data...", end="")
     try:
         st = client.get_waveforms(
