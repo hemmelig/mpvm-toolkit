@@ -2,7 +2,7 @@
 Helicorder visualisation for mpvm.
 
 The helicorder has no compute stage: it reads raw waveform data, applies optional
-filtering, then renders the drum plot.
+preprocessing, then renders the drum plot.
 
 :copyright:
     2026, Conor A. Bacon
@@ -15,6 +15,8 @@ filtering, then renders the drum plot.
 import pathlib
 import sys
 from datetime import date as _date, datetime as dt, timedelta as td, UTC
+from importlib.resources import files
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,6 +24,7 @@ import obspy
 from matplotlib.ticker import MultipleLocator
 
 from mpvmtk.io import make_waveform_client
+from mpvmtk.utils.exceptions import ArchiveEmpty
 
 
 def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
@@ -37,7 +40,10 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
 
     """
 
-    plt.style.use(config["stylesheet"])
+    if config.get("stylesheet"):
+        plt.style.use(config["stylesheet"])
+    else:
+        plt.style.use(files("mpvmtk.styles") / "helicorder.mplstyle")
 
     network = config["site"]["network"]
     station = config["site"]["station"]
@@ -59,38 +65,53 @@ def visualise_seismic_helicorder(config: dict, date: str | None) -> None:
     archive_path.mkdir(parents=True, exist_ok=True)
 
     print(
-        f"Building helicorder:\n  Network: {network}\n"
+        f"Building helicorder:\n"  
+        f"  Network: {network}\n"
         f"  Station: {station}\n"
         f"     Date: {starttime.date()}"
     )
 
-    client = make_waveform_client(config["data"])
+    client = make_waveform_client(config["client"])
     print("   ...loading waveform data...", end="")
-    st = client.get_waveforms(network, station, location, channels, starttime, endtime)
-
-    if not st:
-        print("no data available. Exiting.")
+    try:
+        st = client.get_waveforms(
+            network, station, location, channels, starttime, endtime
+        )
+    except ArchiveEmpty as e:
+        print(f"{e}. Exiting.")
         sys.exit(1)
-
     print("success!")
 
-    if "detrend" in config["preprocess"].keys():
+    preprocessed_st = st.copy()
+    preprocess = config.get("preprocess", {})
+
+    if "detrend" in preprocess:
         for mode in config["preprocess"]["detrend"]:
-            st.detrend(mode)
+            preprocessed_st.detrend(mode)
 
-    tmp_st = st.copy()
-    if "filters" in config["preprocess"].keys():
-        for _, params in config["preprocess"]["filters"].items():
-            tmp_st = tmp_st.filter(**params)
-    filtered_st = tmp_st
+    if "filters" in preprocess:
+        for _, params in preprocess["filters"].items():
+            preprocessed_st = preprocessed_st.filter(**params)
 
-    fig, ax = plt.subplots(1, figsize=(9, 11), constrained_layout=True)
-    ax = _plot_helicorder(ax, filtered_st, starttime.date(), config)
+    response_removal_config = preprocess.get("remove_response")
+    if response_removal_config:
+        inventory = obspy.read_inventory(response_removal_config["inventory"])
+        preprocessed_st.remove_response(
+            inventory=inventory,
+            output=response_removal_config.get("output", "VEL"),
+            water_level=response_removal_config.get("water_level"),
+            pre_filt=response_removal_config.get("pre_filt"),
+            zero_mean=response_removal_config.get("zero_mean", True),
+            taper=response_removal_config.get("taper", True),
+            taper_fraction=response_removal_config.get("taper_fraction", 0.05),
+        )
+
+    fig, ax = plt.subplots()
+    ax = _plot_helicorder(ax, preprocessed_st, starttime.date(), config)
 
     fig.suptitle("")
-    fname = f"{seed_id}-{starttime.strftime('%Y-%m-%d')}_seismic-helicorder.png"
-    fig.savefig(archive_path / fname, dpi=400)
-
+    fname = f"{seed_id}-{starttime.date().isoformat()}_seismic-helicorder.png"
+    fig.savefig(archive_path / fname)
     print("complete.")
 
 
@@ -119,16 +140,18 @@ def _plot_helicorder(
     """
 
     print("   ...constructing helicorder plot...", end="")
-    norm_factor = config["norm_factor"]
-    current_max = 0
-    for tr in st:
-        max_val = max(abs(tr.data))
-        current_max = max(current_max, max_val)
-    norm_factor = current_max / norm_factor
 
-    interval = config["interval"]  # In minutes
+    interval = config.get("interval", 15)  # In minutes
     lines = int((24 * 60) / interval)
     starttime = obspy.UTCDateTime(date)
+
+    amplitude_config = config.get("amplitude", {})
+    velocity_scale = amplitude_config.get("velocity_scale_mps", 1e-6)
+    clip_lines = amplitude_config.get("clip_lines", 3.0)
+    mode = amplitude_config.get("mode", "soft")
+
+    if velocity_scale <= 0:
+        raise ValueError("amplitude.velocity_scale_mps must be > 0")
 
     clrs = iter(plt.cm.magma(np.linspace(0, lines, lines + 1) % 4 / 4))
     for y_offset, clr in zip(range(lines, -1, -1), clrs):
@@ -138,16 +161,24 @@ def _plot_helicorder(
             endtime=starttime + interval_s,
         )
         for tr in stream_line:
+            scaled = _scale_amplitude(
+                tr.data,
+                velocity_scale_mps=velocity_scale,
+                clip_lines=clip_lines,
+                mode=mode,
+            )
             ax.plot(
                 tr.times(reftime=starttime) / 60,
-                tr.data / norm_factor + y_offset,
+                scaled + y_offset,
                 color=clr,
-                linewidth=1,
+                # linewidth=1,
             )
         starttime += interval_s
 
     ax.set_xlim([0, interval])
-    ax.set_xlabel("Time in minutes")
+    ax.set_xlabel(
+        f"Time in minutes  |  +/-1 line = {velocity_scale * 1e6:.1f} µm/s"
+    )
     ax.xaxis.set_major_locator(MultipleLocator(interval / 15))
     ax.xaxis.set_minor_locator(MultipleLocator(1))
 
@@ -157,6 +188,50 @@ def _plot_helicorder(
     ylabels = [f"{hour:02}:00" for hour in range(23, -1, -1)]
     ax.set_yticklabels(ylabels)
 
-    ax.set_title(f"{st[0].id} - {date}")
+    title = f"{st[0].id} - {date}"
+    if config.get("preprocess", {}).get("remove_response"):
+        title += " (ground velocity)"
+    ax.set_title(title)
 
     return ax
+
+
+def _scale_amplitude(
+    data: np.ndarray,
+    velocity_scale_mps: float,
+    clip_lines: float | None = None,
+    mode: Literal["none", "soft", "hard"] = "soft",
+) -> np.ndarray:
+    """
+    Convert ground velocity (m/s) to helicorder line units.
+
+    Parameters
+    ----------
+    data:
+        Input trace data (in m/s).
+    velocity_scale_mps:
+        Reference amplitude for +/-1 line height.
+    clip_lines:
+        Maximum excursion in line units (None = no clipping).
+    mode:
+        "none", "hard", or "soft".
+
+    Returns
+    -------
+    scaled_data:
+        Scaled data in line units.
+
+    """
+
+    amp = data / velocity_scale_mps
+
+    if clip_lines is None or mode == "none":
+        return amp
+
+    if mode == "hard":
+        return np.clip(amp, -clip_lines, clip_lines)
+
+    if mode == "soft":
+        return clip_lines * np.tanh(amp / clip_lines)
+
+    raise ValueError(f"Unknown amplitude scaling mode: {mode}")

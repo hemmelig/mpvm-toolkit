@@ -1,0 +1,46 @@
+# --- Figure geometry ---
+figure.figsize: 6.8898, 7.8740   # 17.5 cm x 20 cm
+savefig.dpi: 400
+figure.constrained_layout.use: True
+
+# --- Fonts ---
+font.family: Nimbus Sans
+font.size: 8.5
+axes.titlesize: 10
+axes.labelsize: 8.5
+xtick.labelsize: 7.5
+ytick.labelsize: 7.5
+legend.fontsize: 8
+text.color: black
+
+# --- Axes ---
+axes.linewidth: 0.8
+axes.grid: False
+axes.spines.top: True
+axes.spines.right: True
+axes.facecolor: white
+figure.facecolor: white
+savefig.facecolor: white
+savefig.edgecolor: white
+axes.labelcolor: black
+axes.edgecolor: black
+
+# --- Ticks ---
+xtick.direction: out
+ytick.direction: out
+xtick.color: black
+ytick.color: black
+xtick.major.size: 3.5
+xtick.minor.size: 2.0
+ytick.major.size: 3.5
+ytick.minor.size: 2.0
+xtick.major.width: 0.8
+xtick.minor.width: 0.6
+ytick.major.width: 0.8
+ytick.minor.width: 0.6
+
+# --- Lines ---
+lines.linewidth: 0.5
+lines.markersize : 10
+lines.solid_capstyle: round
+lines.antialiased: True

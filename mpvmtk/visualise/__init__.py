@@ -17,3 +17,9 @@ __all__ = [
     "visualise_magnetic_field_summary",
     "visualise_seismic_helicorder",
 ]
+
+
+def cm_to_in(value_in_cm: float) -> float:
+    """Conversion utility from centimetres to inches."""
+
+    return value_in_cm / 2.54

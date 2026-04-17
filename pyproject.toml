@@ -48,5 +48,8 @@ build-backend = "hatchling.build"
 [tool.setuptools.packages.find]
 include = ["mpvmtk*"]
 
+[tool.setuptools.package-data]
+"mpvmtk.styles" = ["*.mplstyle"]
+
 [tool.black]
 line-length = 88

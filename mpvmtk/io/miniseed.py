@@ -29,6 +29,9 @@ except ImportError:
     print("SeisMonPy not available.")
     SEISMON_AVAILABLE = False
 
+from mpvmtk.utils import iter_time_chunks
+from mpvmtk.utils.exceptions import ArchiveEmpty
+
 
 class WaveformClient(Protocol):
     def get_waveforms(
@@ -44,7 +47,7 @@ class WaveformClient(Protocol):
     ) -> obspy.Stream: ...
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class LocalArchiveClient:
     path: pathlib.Path
     format: str
@@ -61,18 +64,18 @@ class LocalArchiveClient:
         post_pad: float = 0.0,
     ) -> obspy.Stream:
         """
-        Read data from a local waveform archive.
+        Fetch waveform data from a local waveform archive.
 
         Parameters
         ----------
         network:
-            The network code of data to be loaded from the archive.
+            FDSN network code.
         station:
-            The station code of data to be loaded from the archive.
+            FDSN station code.
         location:
-            The location code of data to be loaded from the archive.
+            FDSN location code.
         channels:
-            The FDSN channel codes of data to be loaded from the archive.
+            FDSN channel codes or pattern.
         starttime:
             First timestamp of data to be loaded from the archive.
         endtime:
@@ -90,35 +93,34 @@ class LocalArchiveClient:
         """
 
         st = obspy.Stream()
-        read_from = starttime - td(seconds=pre_pad)
-        while read_from.date() <= (endtime + td(seconds=post_pad)).date():
+        starttime -= td(seconds=pre_pad)
+        endtime += td(seconds=post_pad)
+        for chunk in iter_time_chunks(starttime, endtime, chunk=td(days=1), align=True):
             glob_path = self.format.format(
                 network=network,
                 station=station,
                 location=location,
                 channels=channels,
-                datetime=read_from,
-                year=read_from.year,
-                jday=read_from.timetuple().tm_yday,
+                datetime=chunk.start,
+                year=chunk.start.year,
+                jday=chunk.start.timetuple().tm_yday,
             )
             for data_file in self.path.glob(glob_path):
                 st += obspy.read(data_file)
 
-            read_from += td(days=1)
-
         if not st:
-            raise ValueError
+            raise ArchiveEmpty()
 
         st.merge(method=-1)
         st.trim(
-            starttime=obspy.UTCDateTime(starttime) - pre_pad,
-            endtime=obspy.UTCDateTime(endtime) + post_pad - st[0].stats.delta,
+            starttime=obspy.UTCDateTime(starttime),
+            endtime=obspy.UTCDateTime(endtime) - st[0].stats.delta,
         )
 
         return st
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class FDSNWaveformClientWrapper:
     base_url: str
     timeout: int = 60
@@ -139,18 +141,18 @@ class FDSNWaveformClientWrapper:
         post_pad: float = 0.0,
     ) -> obspy.Stream:
         """
-        Passthrough for the ObsPy FDSN Client `get_waveforms` method.
+        Fetch waveform data from a remote FDSN station service.
 
         Parameters
         ----------
         network:
-            The network code of data to be loaded from the remote FDSN server.
+            FDSN network code.
         station:
-            The station code of data to be loaded from the remote FDSN server.
+            FDSN station code.
         location:
-            The location code of data to be loaded from the remote FDSN server.
+            FDSN location code.
         channels:
-            The FDSN channel codes of data to be loaded from the remote FDSN server.
+            FDSN channel codes or pattern.
         starttime:
             First timestamp of data to be loaded from the remote FDSN server.
         endtime:
@@ -175,7 +177,7 @@ class FDSNWaveformClientWrapper:
         )
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class SeismonWaveformClientWrapper:
 
     db_path: str | None = None
@@ -224,18 +226,18 @@ class SeismonWaveformClientWrapper:
         post_pad: float = 0.0,
     ) -> obspy.Stream:
         """
-        Passthrough for the SeisMonPy Client `get_waveforms` method.
+        Fetch waveform data from a remote SeisMonPy client.
 
         Parameters
         ----------
         network:
-            The network code of data to be loaded from the SeisMon Client.
+            FDSN network code.
         station:
-            The station code of data to be loaded from the SeisMon Client.
+            FDSN station code.
         location:
-            The location code of data to be loaded from the SeisMon Client.
+            FDSN location code.
         channels:
-            The FDSN channel codes of data to be loaded from the SeisMon Client.
+            FDSN channel codes or pattern.
         starttime:
             First timestamp of data to be loaded from the SeisMon Client.
         endtime:

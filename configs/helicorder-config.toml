@@ -6,16 +6,22 @@ stylesheet = "./basic_style.mplstyle"
 norm_factor = 10.0
 interval = 15
 
-[data]
+[waveform]
 client = "local"  # or "fdsn"
 
-[data.local]
+[waveform.local]
 archive = "./archive/miniseed"
 archive_format = "{year}/{network}/{station}/{channels}/{network}.{station}.{location}.{channels}.{year}.{jday:03d}"
 
-[data.fdsn]
+[waveform.fdsn]
 base_url = "IRIS"         # or "https://service.iris.edu"
 timeout = 60
+
+[response]
+client = "stationxml"
+
+[response.stationxml]
+path = "/data/responses/stations.xml"
 
 [site]
 network = ""
